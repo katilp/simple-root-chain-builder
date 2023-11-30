@@ -5,6 +5,7 @@ Build a ROOT chain with root files in a given directory
 ```bash
 source makechain.sh "<DIRECTORY>/*.root" > mychain.C
 ```
+This expects the ROOT tree name to be `Events`.
 
 Plots some values with
 
