@@ -11,14 +11,18 @@
 #include <TROOT.h>
 #endif
 
-void pfIncMassPlots(const char* filePattern = "*.root") {
+void pfInvMassPlots(const char* filePattern = "*.root") {
     TChain *chain = new TChain("Events");
-    if (chain->Add(filePattern) == 0) {
-        std::cerr << "Error: No files found matching " << filePattern << std::endl;
+    
+    // Add returns the number of files added. Store it directly.
+    Int_t nFiles = chain->Add(filePattern);
+    
+    if (nFiles == 0) {
+        std::cerr << "Error: No files found matching \"" << filePattern << "\"" << std::endl;
         return;
     }
 
-    std::cout << "Loaded " << chain->GetFileInfo()->GetN() << " files." << std::endl;
+    std::cout << "Loaded " << nFiles << " files. Total entries: " << chain->GetEntries() << std::endl;
 
     // 1. Simple Plots
     TCanvas *c1 = new TCanvas("c1", "nPFCands", 800, 400);
