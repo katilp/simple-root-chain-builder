@@ -10,26 +10,26 @@ void pfInvMassPlots(const char* filePattern = "*.root") {
     std::cout << "Loaded " << nFiles << " files. Total entries: " << chain->GetEntries() << std::endl;
 
     // 2. Simple Plots via Direct Draw
-    // These handle vector expansion and filling automatically.
-    
-    // Plot 1: nPFCands
     TCanvas *c1 = new TCanvas("c1", "Number of packed candidates", 800, 400);
     chain->Draw("nPFCands"); 
     c1->SaveAs("h_num_cands.png");
 
-    // Plot 2: PFCands_pdgId
     TCanvas *c2 = new TCanvas("c2", "Type of packed candidates", 800, 400);
     chain->Draw("PFCands_pdgId");
     c2->SaveAs("h_pdgid_cands.png");
 
-    // 3. Setup for Manual Loop (Invariant Mass)
-    // Only load branches needed for the complex pairing logic
-    int nPFCands = 0;
-    std::vector<int> *PFCands_pdgId = 0;
-    std::vector<float> *PFCands_pt = 0;
-    std::vector<float> *PFCands_eta = 0;
-    std::vector<float> *PFCands_phi = 0;
-    std::vector<float> *PFCands_mass = 0;
+    // 3. Setup for Manual Loop 
+    // NanoAOD Specific Types:
+    // nPFCands is UInt_t (unsigned int)
+    // PFCands_pdgId is vector<Int_t> (not int)
+    // Kinematics are vector<Float_t> (not float)
+    
+    UInt_t nPFCands = 0; 
+    std::vector<Int_t> *PFCands_pdgId = 0;
+    std::vector<Float_t> *PFCands_pt = 0;
+    std::vector<Float_t> *PFCands_eta = 0;
+    std::vector<Float_t> *PFCands_phi = 0;
+    std::vector<Float_t> *PFCands_mass = 0;
 
     chain->SetBranchAddress("nPFCands", &nPFCands);
     chain->SetBranchAddress("PFCands_pdgId", &PFCands_pdgId);
@@ -49,28 +49,27 @@ void pfInvMassPlots(const char* filePattern = "*.root") {
     h_dielectron_mass->SetLineColor(kRed);
     h_dielectron_mass->SetLineWidth(2);
 
-    // 4. Manual Event Loop (Only for Complex Logic)
+    // 4. Manual Event Loop
     Long64_t nEntries = chain->GetEntries();
     
     for (Long64_t i = 0; i < nEntries; i++) {
         chain->GetEntry(i);
-        if (i % 50000 == 0) std::cout << "Processing entry " << i << "/" << nEntries << " (Mass calc)" << std::endl;
+        if (i % 50000 == 0) std::cout << "Processing entry " << i << "/" << nEntries << std::endl;
 
-        // Temporary containers for indices
-        std::vector<int> muonIndices;
-        std::vector<int> electronIndices;
+        std::vector<Int_t> muonIndices;
+        std::vector<Int_t> electronIndices;
 
         if (PFCands_pdgId && PFCands_pt) {
-            for (int j = 0; j < nPFCands; j++) {
-                int pdg = PFCands_pdgId->at(j);
-                float pt = PFCands_pt->at(j);
+            // nPFCands is now UInt_t, loop variable should match or be cast safely
+            for (UInt_t j = 0; j < nPFCands; j++) {
+                Int_t pdg = PFCands_pdgId->at(j);
+                Float_t pt = PFCands_pt->at(j);
 
-                // Minimal PT cut to reduce combinatorics
                 if (pt < 2.0) continue; 
 
-                if (abs(pdg) == 13) {
+                if (TMath::Abs(pdg) == 13) {
                     muonIndices.push_back(j);
-                } else if (abs(pdg) == 11) {
+                } else if (TMath::Abs(pdg) == 11) {
                     electronIndices.push_back(j);
                 }
             }
@@ -80,13 +79,17 @@ void pfInvMassPlots(const char* filePattern = "*.root") {
         if (muonIndices.size() >= 2) {
             for (size_t j = 0; j < muonIndices.size(); j++) {
                 for (size_t k = j + 1; k < muonIndices.size(); k++) {
-                    int idx1 = muonIndices[j];
-                    int idx2 = muonIndices[k];
-                    if (PFCands_pdgId->at(idx1) * PFCands_pdgId->at(idx2) >= 0) continue; // Same charge skip
+                    Int_t idx1 = muonIndices[j];
+                    Int_t idx2 = muonIndices[k];
+                    
+                    // Check charge using Int_t
+                    if (PFCands_pdgId->at(idx1) * PFCands_pdgId->at(idx2) >= 0) continue;
 
                     TLorentzVector p1, p2;
+                    // Float_t converts automatically to double for TLorentzVector
                     p1.SetPtEtaPhiM(PFCands_pt->at(idx1), PFCands_eta->at(idx1), PFCands_phi->at(idx1), PFCands_mass->at(idx1));
                     p2.SetPtEtaPhiM(PFCands_pt->at(idx2), PFCands_eta->at(idx2), PFCands_phi->at(idx2), PFCands_mass->at(idx2));
+                    
                     h_dimuon_mass->Fill((p1 + p2).M());
                 }
             }
@@ -96,13 +99,15 @@ void pfInvMassPlots(const char* filePattern = "*.root") {
         if (electronIndices.size() >= 2) {
             for (size_t j = 0; j < electronIndices.size(); j++) {
                 for (size_t k = j + 1; k < electronIndices.size(); k++) {
-                    int idx1 = electronIndices[j];
-                    int idx2 = electronIndices[k];
-                    if (PFCands_pdgId->at(idx1) * PFCands_pdgId->at(idx2) >= 0) continue; // Same charge skip
+                    Int_t idx1 = electronIndices[j];
+                    Int_t idx2 = electronIndices[k];
+
+                    if (PFCands_pdgId->at(idx1) * PFCands_pdgId->at(idx2) >= 0) continue;
 
                     TLorentzVector p1, p2;
                     p1.SetPtEtaPhiM(PFCands_pt->at(idx1), PFCands_eta->at(idx1), PFCands_phi->at(idx1), PFCands_mass->at(idx1));
                     p2.SetPtEtaPhiM(PFCands_pt->at(idx2), PFCands_eta->at(idx2), PFCands_phi->at(idx2), PFCands_mass->at(idx2));
+                    
                     h_dielectron_mass->Fill((p1 + p2).M());
                 }
             }
