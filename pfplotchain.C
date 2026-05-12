@@ -1,4 +1,4 @@
-void pfplotschain(const char* filePattern = "*.root") {
+void pfplotchain(const char* filePattern = "*.root") {
     // Create the chain and add all files matching the pattern immediately
     TChain *chain = new TChain("Events");
     chain->Add(filePattern);
